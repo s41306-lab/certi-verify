@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>แผงควบคุมครู — ระบบเกียรติบัตรโรงเรียน</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/styles.css" />
+  </head>
+  <body>
+    <nav class="navbar">
+      <div class="navbar-inner">
+        <div class="brand">
+          <img class="brand-logo" src="assets/logo.png" alt="โลโก้โรงเรียนศรียานุสรณ์" onerror="this.style.display='none'" />
+          แผงควบคุมครู
+        </div>
+        <div class="nav-spacer"></div>
+        <span class="nav-email" id="navEmail"></span>
+        <button class="btn btn-ghost btn-sm" onclick="logout()">ออกจากระบบ</button>
+      </div>
+    </nav>
+
+    <div class="container">
+      <h1 class="page-title">แผงควบคุมครู</h1>
+      <p class="page-sub">ตรวจคำขอ อนุมัติออกเกียรติบัตร และจัดการกิจกรรม</p>
+
+      <div class="tabs">
+        <button class="tab active" data-tab="approve">คำขออนุมัติ</button>
+        <button class="tab" data-tab="manage">จัดการกิจกรรม</button>
+      </div>
+
+      <!-- คำขออนุมัติ -->
+      <section class="tab-panel active" id="panel-approve">
+        <div id="approveList"><div class="empty">กำลังโหลด...</div></div>
+      </section>
+
+      <!-- จัดการกิจกรรม -->
+      <section class="tab-panel" id="panel-manage">
+        <div class="card" style="margin-bottom: 20px; max-width: 560px">
+          <h3 style="margin-bottom: 14px">เพิ่มกิจกรรมใหม่</h3>
+          <form id="actForm">
+            <div class="field">
+              <label>ชื่อกิจกรรม</label>
+              <input id="actTitle" required placeholder="เช่น วันวิทยาศาสตร์" />
+            </div>
+            <div class="field">
+              <label>รายละเอียด</label>
+              <textarea id="actDesc" rows="3" placeholder="คำอธิบายกิจกรรม"></textarea>
+            </div>
+            <div class="field">
+              <label>วันที่จัดกิจกรรม</label>
+              <input id="actDate" type="date" />
+            </div>
+            <button class="btn btn-primary" type="submit">เพิ่มกิจกรรม</button>
+          </form>
+        </div>
+
+        <div id="manageList"><div class="empty">กำลังโหลด...</div></div>
+      </section>
+    </div>
+
+    <!-- modal: แก้ไขกิจกรรม -->
+    <div class="modal" id="editModal">
+      <div class="modal-card">
+        <h3>แก้ไขกิจกรรม</h3>
+        <div class="field" style="margin-top: 8px">
+          <label>ชื่อกิจกรรม</label>
+          <input id="editTitle" />
+        </div>
+        <div class="field">
+          <label>รายละเอียด</label>
+          <textarea id="editDesc" rows="3"></textarea>
+        </div>
+        <div class="field">
+          <label>วันที่จัดกิจกรรม</label>
+          <input id="editDate" type="date" />
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-primary" id="editSave">บันทึก</button>
+          <button class="btn btn-ghost" type="button" onclick="closeEdit()">ยกเลิก</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- modal: อัปโหลดเกียรติบัตรเปล่า -->
+    <div class="modal" id="tplModal">
+      <div class="modal-card">
+        <h3>อัปโหลดเกียรติบัตรเปล่า</h3>
+        <p class="desc" id="tplActName"></p>
+        <p class="page-sub" style="font-size: 13px; margin: 6px 0 0">
+          รูปนี้จะใช้เป็นพื้นเกียรติบัตร แล้วระบบจะพิมพ์ชื่อนักเรียนทับให้อัตโนมัติ
+        </p>
+        <div class="field" style="margin-top: 10px">
+          <input type="file" id="tplFile" class="file-input" accept="image/*" />
+          <img id="tplPreview" class="preview-img" alt="ตัวอย่างเกียรติบัตร" hidden />
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-primary" id="tplSave">บันทึก</button>
+          <button class="btn btn-ghost" type="button" onclick="closeTpl()">ยกเลิก</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- modal: ดูรูปขนาดเต็ม -->
+    <div class="modal" id="imgModal" onclick="this.classList.remove('show')">
+      <img id="modalImg" alt="หลักฐาน" />
+    </div>
+
+    <script src="assets/config.js"></script>
+    <script src="assets/app.js"></script>
+    <script>
+      if (!requireRole('admin')) throw new Error('redirect');
+      document.getElementById('navEmail').textContent =
+        (getProfile() || {}).email || '';
+
+      document.querySelectorAll('.tab').forEach((t) => {
+        t.addEventListener('click', () => {
+          document.querySelectorAll('.tab').forEach((x) => x.classList.remove('active'));
+          document.querySelectorAll('.tab-panel').forEach((x) => x.classList.remove('active'));
+          t.classList.add('active');
+          document.getElementById('panel-' + t.dataset.tab).classList.add('active');
+        });
+      });
+
+      // ---------- คำขออนุมัติ ----------
+      async function loadRequests() {
+        try {
+          const { registrations } = await api('/api/registrations/all');
+          const rows = registrations.filter((r) => r.status === 'pending_approval');
+          const box = document.getElementById('approveList');
+          if (!rows.length) {
+            box.innerHTML = '<div class="empty">ไม่มีคำขอรออนุมัติ</div>';
+            return;
+          }
+          box.innerHTML = rows
+            .map((r) => {
+              const thumb = r.proof_image_url
+                ? `<img src="${r.proof_image_url}" class="proof-thumb" onclick="showImg('${escapeHtml(
+                    r.proof_image_url
+                  )}')" alt="หลักฐาน" />`
+                : '<div class="proof-thumb" style="display:grid;place-items:center;font-size:11px;color:var(--muted)">ไม่มีรูป</div>';
+              return `<div class="list-item">
+                ${thumb}
+                <div class="grow">
+                  <div class="title">${escapeHtml(r.student?.full_name || '-')}</div>
+                  <div class="sub">${escapeHtml(r.activity?.title || '-')} · ${escapeHtml(
+                r.student?.email || ''
+              )}</div>
+                </div>
+                <button class="btn btn-success btn-sm" onclick="approve('${r.id}')">อนุมัติ</button>
+                <button class="btn btn-danger btn-sm" onclick="reject('${r.id}')">ปฏิเสธ</button>
+              </div>`;
+            })
+            .join('');
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      }
+
+      async function approve(id) {
+        try {
+          await api(`/api/registrations/${id}/approve`, { method: 'PATCH' });
+          toast('อนุมัติและออกเกียรติบัตรแล้ว', 'success');
+          loadRequests();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      }
+      async function reject(id) {
+        if (!confirm('ยืนยันการปฏิเสธคำขอนี้?')) return;
+        try {
+          await api(`/api/registrations/${id}/reject`, { method: 'PATCH' });
+          toast('ปฏิเสธแล้ว', 'success');
+          loadRequests();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      }
+
+      // ---------- จัดการกิจกรรม ----------
+      async function loadActivities() {
+        try {
+          const { activities } = await api('/api/activities');
+          const box = document.getElementById('manageList');
+          if (!activities.length) {
+            box.innerHTML = '<div class="empty">ยังไม่มีกิจกรรม</div>';
+            return;
+          }
+          box.innerHTML = activities
+            .map((a) => {
+              const tpl = a.has_certificate_template
+                ? '<span class="badge badge-green"><span class="dot"></span>มีเกียรติบัตรเปล่าแล้ว</span>'
+                : '<span class="badge badge-yellow"><span class="dot"></span>ยังไม่มีเกียรติบัตรเปล่า</span>';
+              return `<div class="list-item">
+                <div class="grow">
+                  <div class="title">${escapeHtml(a.title)}</div>
+                  <div class="sub">วันที่จัด ${fmtDate(a.event_date)}</div>
+                  <div style="margin-top:6px">${tpl}</div>
+                </div>
+                <div class="row-actions">
+                  <button class="btn btn-ghost btn-sm" onclick='openEdit(${JSON.stringify({
+                    id: a.id,
+                    title: a.title,
+                    description: a.description || '',
+                    event_date: a.event_date || '',
+                  })})'>แก้ไข</button>
+                  <button class="btn btn-primary btn-sm" onclick='openTpl(${JSON.stringify({
+                    id: a.id,
+                    title: a.title,
+                  })})'>อัปโหลดเกียรติบัตร</button>
+                  <button class="btn btn-danger btn-sm" onclick="delActivity('${a.id}')">ลบ</button>
+                </div>
+              </div>`;
+            })
+            .join('');
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      }
+
+      document.getElementById('actForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const title = document.getElementById('actTitle').value.trim();
+        const description = document.getElementById('actDesc').value.trim();
+        const event_date = document.getElementById('actDate').value || null;
+        try {
+          await api('/api/activities', {
+            method: 'POST',
+            body: { title, description, event_date },
+          });
+          toast('เพิ่มกิจกรรมแล้ว', 'success');
+          e.target.reset();
+          loadActivities();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+
+      async function delActivity(id) {
+        if (!confirm('ลบกิจกรรมนี้? คำขอและเกียรติบัตรที่เกี่ยวข้องจะถูกลบด้วย')) return;
+        try {
+          await api(`/api/activities/${id}`, { method: 'DELETE' });
+          toast('ลบแล้ว', 'success');
+          loadActivities();
+          loadRequests();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      }
+
+      // ---------- modal แก้ไข ----------
+      let editId = null;
+      function openEdit(a) {
+        editId = a.id;
+        document.getElementById('editTitle').value = a.title;
+        document.getElementById('editDesc').value = a.description;
+        document.getElementById('editDate').value = a.event_date;
+        document.getElementById('editModal').classList.add('show');
+      }
+      function closeEdit() {
+        document.getElementById('editModal').classList.remove('show');
+        editId = null;
+      }
+      document.getElementById('editSave').addEventListener('click', async () => {
+        if (!editId) return;
+        try {
+          await api(`/api/activities/${editId}`, {
+            method: 'PATCH',
+            body: {
+              title: document.getElementById('editTitle').value.trim(),
+              description: document.getElementById('editDesc').value.trim(),
+              event_date: document.getElementById('editDate').value || null,
+            },
+          });
+          toast('บันทึกแล้ว', 'success');
+          closeEdit();
+          loadActivities();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+
+      // ---------- modal อัปโหลดเกียรติบัตรเปล่า ----------
+      let tplId = null;
+      let tplBase64 = null;
+      const tplFile = document.getElementById('tplFile');
+      const tplPreview = document.getElementById('tplPreview');
+      const tplSave = document.getElementById('tplSave');
+
+      function openTpl(a) {
+        tplId = a.id;
+        tplBase64 = null;
+        document.getElementById('tplActName').textContent = a.title;
+        tplFile.value = '';
+        tplPreview.hidden = true;
+        tplSave.disabled = false;
+        tplSave.textContent = 'บันทึก';
+        document.getElementById('tplModal').classList.add('show');
+      }
+      function closeTpl() {
+        document.getElementById('tplModal').classList.remove('show');
+        tplId = null;
+      }
+      tplFile.addEventListener('change', () => {
+        const file = tplFile.files[0];
+        if (!file) return;
+        if (file.size > 8 * 1024 * 1024) {
+          toast('ไฟล์ใหญ่เกิน 8MB', 'error');
+          tplFile.value = '';
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+          tplBase64 = reader.result;
+          tplPreview.src = tplBase64;
+          tplPreview.hidden = false;
+        };
+        reader.readAsDataURL(file);
+      });
+      tplSave.addEventListener('click', async () => {
+        if (!tplId) return;
+        if (!tplBase64) {
+          toast('กรุณาเลือกรูปเกียรติบัตรเปล่า', 'error');
+          return;
+        }
+        tplSave.disabled = true;
+        tplSave.textContent = 'กำลังบันทึก...';
+        try {
+          await api(`/api/activities/${tplId}/certificate-template`, {
+            method: 'PATCH',
+            body: { image_base64: tplBase64 },
+          });
+          toast('อัปโหลดเกียรติบัตรเปล่าแล้ว', 'success');
+          closeTpl();
+          loadActivities();
+        } catch (err) {
+          toast(err.message, 'error');
+          tplSave.disabled = false;
+          tplSave.textContent = 'บันทึก';
+        }
+      });
+
+      function showImg(url) {
+        document.getElementById('modalImg').src = url;
+        document.getElementById('imgModal').classList.add('show');
+      }
+
+      loadRequests();
+      loadActivities();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,18 @@
+# dependencies
+node_modules/
+
+# env / secrets
+.env
+.env.*
+!.env.example
+
+# logs
+*.log
+
+# os / editor
+.DS_Store
+Thumbs.db
+
+# local-only configs (absolute paths / machine-specific)
+.claude/
+.vercel/

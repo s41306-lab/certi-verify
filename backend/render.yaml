@@ -1,0 +1,22 @@
+# render.yaml — สำหรับ deploy backend บน Render
+# (Render > New > Blueprint แล้วชี้มาที่ repo นี้ หรือสร้าง Web Service ด้วยมือ)
+services:
+  - type: web
+    name: school-certificate-api
+    env: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_STORAGE_BUCKET
+        value: proofs
+      - key: ALLOWED_EMAIL_DOMAIN
+        value: siya.ac.th
+      - key: CORS_ORIGINS
+        sync: false

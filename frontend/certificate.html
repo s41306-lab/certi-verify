@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>เกียรติบัตร</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Charm:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/styles.css" />
+    <style>
+      body {
+        background: #e5e7eb;
+      }
+      .toolbar {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 20px;
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+      }
+      .cert-page {
+        display: grid;
+        place-items: center;
+        padding: 0 16px 40px;
+      }
+      .certificate {
+        background: #fffdf7;
+        width: 100%;
+        max-width: 960px;
+        aspect-ratio: 1.414 / 1; /* A4 landscape */
+        position: relative;
+        box-shadow: var(--shadow-lg);
+        padding: 56px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        border: 2px solid #d4af37;
+        outline: 10px solid #fffdf7;
+        outline-offset: -22px;
+      }
+      .cert-inner-border {
+        position: absolute;
+        inset: 26px;
+        border: 1px solid #d4af37;
+        pointer-events: none;
+      }
+      .corner {
+        position: absolute;
+        width: 46px;
+        height: 46px;
+        border: 3px solid var(--gold);
+      }
+      .corner.tl { top: 14px; left: 14px; border-right: 0; border-bottom: 0; }
+      .corner.tr { top: 14px; right: 14px; border-left: 0; border-bottom: 0; }
+      .corner.bl { bottom: 14px; left: 14px; border-right: 0; border-top: 0; }
+      .corner.br { bottom: 14px; right: 14px; border-left: 0; border-top: 0; }
+
+      .cert-seal {
+        margin-bottom: 10px;
+      }
+      .cert-seal img {
+        height: 80px;
+        width: auto;
+      }
+      .cert-school {
+        letter-spacing: 2px;
+        color: var(--muted);
+        font-size: 15px;
+        text-transform: none;
+      }
+      .cert-title {
+        font-family: 'Charm', 'Sarabun', cursive;
+        font-size: clamp(34px, 6vw, 56px);
+        color: var(--gold);
+        font-weight: 700;
+        margin: 6px 0 4px;
+      }
+      .cert-pre {
+        color: #555;
+        margin: 18px 0 6px;
+      }
+      .cert-name {
+        font-size: clamp(26px, 4.5vw, 40px);
+        font-weight: 700;
+        color: #1f2937;
+        border-bottom: 2px solid #d4af37;
+        padding: 0 24px 8px;
+        margin-bottom: 14px;
+      }
+      .cert-body {
+        max-width: 640px;
+        color: #444;
+        font-size: clamp(15px, 2vw, 18px);
+        line-height: 1.9;
+      }
+      .cert-activity {
+        font-weight: 700;
+        color: var(--primary-dark);
+      }
+      .cert-foot {
+        margin-top: 40px;
+        display: flex;
+        gap: 80px;
+        align-items: flex-end;
+      }
+      .sign {
+        text-align: center;
+        font-size: 14px;
+        color: #555;
+      }
+      .sign .line {
+        width: 180px;
+        border-top: 1px solid #999;
+        margin-bottom: 6px;
+      }
+      .cert-id {
+        position: absolute;
+        bottom: 16px;
+        right: 30px;
+        font-size: 11px;
+        color: #bbb;
+      }
+      .loading,
+      .error-box {
+        text-align: center;
+        padding: 80px 20px;
+        color: var(--muted);
+      }
+
+      /* เกียรติบัตรจากรูปที่ครูอัปโหลด (เกียรติบัตรเปล่า + ชื่อทับ) */
+      .cert-image-wrap {
+        position: relative;
+        width: 100%;
+        max-width: 960px;
+        box-shadow: var(--shadow-lg);
+        line-height: 0;
+      }
+      .cert-image-wrap img {
+        width: 100%;
+        display: block;
+      }
+      .cert-overlay-name {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 84%;
+        text-align: center;
+        line-height: 1.2;
+        font-size: clamp(22px, 4.2vw, 42px);
+        font-weight: 700;
+        color: #1f2937;
+      }
+
+      @media print {
+        @page { size: A4 landscape; margin: 0; }
+        body { background: #fff; }
+        .toolbar { display: none !important; }
+        .cert-page { padding: 0; }
+        .certificate {
+          box-shadow: none;
+          max-width: none;
+          width: 100%;
+          height: 100vh;
+          aspect-ratio: auto;
+          page-break-inside: avoid;
+        }
+        .cert-image-wrap {
+          box-shadow: none;
+          max-width: none;
+          width: 100%;
+          page-break-inside: avoid;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="toolbar" id="toolbar" style="display: none">
+      <button class="btn btn-primary" onclick="window.print()">
+        พิมพ์ / บันทึก PDF
+      </button>
+      <a class="btn btn-ghost" href="student.html">กลับ</a>
+    </div>
+
+    <div class="cert-page">
+      <div id="root">
+        <div class="loading">กำลังโหลดเกียรติบัตร...</div>
+      </div>
+    </div>
+
+    <script src="assets/config.js"></script>
+    <script src="assets/app.js"></script>
+    <script>
+      if (!getToken()) location.href = 'login.html';
+
+      const params = new URLSearchParams(location.search);
+      const certId = params.get('id');
+      const regId = params.get('reg');
+
+      function render(c) {
+        const name = c.student?.full_name || '-';
+        const activity = c.activity?.title || '-';
+        document.getElementById('toolbar').style.display = 'flex';
+        const tpl = c.activity?.certificate_template_url;
+        // ถ้าครูอัปโหลดเกียรติบัตรเปล่าไว้ → ใช้รูปนั้น แล้ววางชื่อนักเรียนทับตรงกลาง
+        if (tpl) {
+          document.getElementById('root').innerHTML = `
+            <div class="cert-image-wrap">
+              <img src="${tpl}" alt="เกียรติบัตร ${escapeHtml(activity)}" />
+              <div class="cert-overlay-name">${escapeHtml(name)}</div>
+            </div>`;
+          return;
+        }
+        // ไม่มีเทมเพลต → ใช้เกียรติบัตร HTML แบบมาตรฐาน
+        document.getElementById('root').innerHTML = `
+          <div class="certificate">
+            <span class="corner tl"></span><span class="corner tr"></span>
+            <span class="corner bl"></span><span class="corner br"></span>
+            <div class="cert-inner-border"></div>
+
+            <div class="cert-seal">
+              <img src="assets/logo.png" alt="โลโก้โรงเรียนศรียานุสรณ์" onerror="this.style.display='none'" />
+            </div>
+            <div class="cert-school">โรงเรียนศรียานุสรณ์ จังหวัดจันทบุรี</div>
+            <div class="cert-title">เกียรติบัตร</div>
+            <div class="cert-pre">ขอมอบเกียรติบัตรฉบับนี้เพื่อแสดงว่า</div>
+            <div class="cert-name">${escapeHtml(name)}</div>
+            <div class="cert-body">
+              ได้เข้าร่วมกิจกรรม
+              <span class="cert-activity">“${escapeHtml(activity)}”</span><br />
+              ${c.activity?.event_date ? 'เมื่อวันที่ ' + fmtDate(c.activity.event_date) + '<br />' : ''}
+              ขอให้รักษาความดีและความตั้งใจนี้สืบไป
+            </div>
+            <div class="cert-foot">
+              <div class="sign">
+                <div class="line"></div>
+                ครูผู้รับผิดชอบกิจกรรม
+              </div>
+              <div class="sign">
+                <div class="line"></div>
+                ผู้อำนวยการโรงเรียน
+              </div>
+            </div>
+            <div class="cert-id">เลขที่: ${escapeHtml(c.id)} · ออกเมื่อ ${fmtDate(c.issued_at)}</div>
+          </div>`;
+      }
+
+      (async () => {
+        try {
+          let res;
+          if (certId) res = await api(`/api/certificates/${certId}`);
+          else if (regId)
+            res = await api(`/api/certificates/by-registration/${regId}`);
+          else throw new Error('ไม่พบรหัสเกียรติบัตรใน URL');
+          render(res.certificate);
+        } catch (err) {
+          document.getElementById('root').innerHTML =
+            `<div class="error-box">${escapeHtml(err.message)}</div>`;
+        }
+      })();
+    </script>
+  </body>
+</html>

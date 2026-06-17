@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ระบบเกียรติบัตรโรงเรียน</title>
+    <script src="assets/config.js"></script>
+    <script src="assets/app.js"></script>
+    <script>
+      // เด็งตามสถานะ login
+      const role = localStorage.getItem('role');
+      if (!getToken()) location.replace('login.html');
+      else location.replace(role === 'admin' ? 'admin.html' : 'student.html');
+    </script>
+  </head>
+  <body></body>
+</html>

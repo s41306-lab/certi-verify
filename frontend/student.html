@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>นักเรียน — ระบบเกียรติบัตรโรงเรียน</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/styles.css" />
+  </head>
+  <body>
+    <nav class="navbar">
+      <div class="navbar-inner">
+        <div class="brand">
+          <img class="brand-logo" src="assets/logo.png" alt="โลโก้โรงเรียนศรียานุสรณ์" onerror="this.style.display='none'" />
+          ระบบเกียรติบัตร
+        </div>
+        <div class="nav-spacer"></div>
+        <span class="nav-email" id="navEmail"></span>
+        <button class="btn btn-ghost btn-sm" onclick="logout()">ออกจากระบบ</button>
+      </div>
+    </nav>
+
+    <div class="container">
+      <h1 class="page-title">สวัสดี <span id="hello"></span></h1>
+      <p class="page-sub">ลงทะเบียนกิจกรรม แนบหลักฐาน และรับเกียรติบัตรของคุณ</p>
+
+      <div class="tabs">
+        <button class="tab active" data-tab="all">กิจกรรมทั้งหมด</button>
+        <button class="tab" data-tab="mine">กิจกรรมของฉัน</button>
+        <button class="tab" data-tab="certs">เกียรติบัตรของฉัน</button>
+      </div>
+
+      <section class="tab-panel active" id="panel-all">
+        <div class="grid" id="activitiesGrid">
+          <div class="empty">กำลังโหลด...</div>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="panel-mine">
+        <div id="myRegs"><div class="empty">กำลังโหลด...</div></div>
+      </section>
+
+      <section class="tab-panel" id="panel-certs">
+        <div class="grid" id="myCerts">
+          <div class="empty">กำลังโหลด...</div>
+        </div>
+      </section>
+    </div>
+
+    <!-- modal: ลงทะเบียน + แนบรูปหลักฐาน -->
+    <div class="modal" id="regModal">
+      <div class="modal-card">
+        <h3 id="regTitle"></h3>
+        <p class="desc" id="regDesc"></p>
+        <div class="field" style="margin-top: 8px">
+          <label>แนบรูปหลักฐานการเข้าร่วม</label>
+          <input type="file" id="regFile" class="file-input" accept="image/*" />
+          <img id="regPreview" class="preview-img" alt="ตัวอย่างรูป" hidden />
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-primary" id="regSubmit">ส่งคำขอ</button>
+          <button class="btn btn-ghost" type="button" onclick="closeRegModal()">ยกเลิก</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- modal: ดูรูปขนาดเต็ม -->
+    <div class="modal" id="imgModal" onclick="this.classList.remove('show')">
+      <img id="modalImg" alt="หลักฐาน" />
+    </div>
+
+    <script src="assets/config.js"></script>
+    <script src="assets/app.js"></script>
+    <script>
+      if (!requireRole('student')) throw new Error('redirect');
+
+      const profile = getProfile() || {};
+      document.getElementById('navEmail').textContent = profile.email || '';
+      document.getElementById('hello').textContent = profile.full_name || '';
+
+      // ---------- tabs ----------
+      document.querySelectorAll('.tab').forEach((t) => {
+        t.addEventListener('click', () => {
+          document.querySelectorAll('.tab').forEach((x) => x.classList.remove('active'));
+          document.querySelectorAll('.tab-panel').forEach((x) => x.classList.remove('active'));
+          t.classList.add('active');
+          document.getElementById('panel-' + t.dataset.tab).classList.add('active');
+        });
+      });
+
+      // ---------- โหลดกิจกรรมทั้งหมด ----------
+      let myRegByActivity = {};
+
+      async function loadAll() {
+        await loadMine(); // รู้ก่อนว่าลงอะไรไปแล้ว
+        try {
+          const { activities } = await api('/api/activities');
+          const grid = document.getElementById('activitiesGrid');
+          if (!activities.length) {
+            grid.innerHTML = '<div class="empty">ยังไม่มีกิจกรรม</div>';
+            return;
+          }
+          grid.innerHTML = activities
+            .map((a) => {
+              const reg = myRegByActivity[a.id];
+              const cover = a.image_url
+                ? `<img class="card-cover" src="${a.image_url}" alt="${escapeHtml(a.title)}" />`
+                : `<div class="card-cover-placeholder">${escapeHtml(a.title)}</div>`;
+              const btn = reg
+                ? `<button class="btn btn-ghost btn-block" disabled>ส่งคำขอแล้ว</button>`
+                : `<button class="btn btn-primary btn-block" onclick='openRegModal(${JSON.stringify(
+                    { id: a.id, title: a.title, description: a.description || '' }
+                  )})'>ลงทะเบียน</button>`;
+              return `<div class="card">
+                ${cover}
+                <h3>${escapeHtml(a.title)}</h3>
+                <p class="desc">${escapeHtml(a.description || 'ไม่มีรายละเอียด')}</p>
+                <div class="meta">วันที่จัด ${fmtDate(a.event_date)}</div>
+                ${btn}
+              </div>`;
+            })
+            .join('');
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      }
+
+      // ---------- กิจกรรมของฉัน ----------
+      async function loadMine() {
+        try {
+          const { registrations } = await api('/api/registrations/mine');
+          myRegByActivity = {};
+          registrations.forEach((r) => {
+            if (r.activity) myRegByActivity[r.activity.id] = r;
+          });
+
+          const box = document.getElementById('myRegs');
+          if (!registrations.length) {
+            box.innerHTML = '<div class="empty">ยังไม่ได้ลงทะเบียนกิจกรรมใด</div>';
+            return;
+          }
+          box.innerHTML = registrations
+            .map((r) => {
+              let action = '';
+              if (r.status === 'certified') {
+                action = `<a class="btn btn-success btn-sm" href="certificate?reg=${r.id}" target="_blank">ดาวน์โหลดเกียรติบัตร</a>`;
+              } else if (r.proof_image_url) {
+                action = `<img src="${r.proof_image_url}" class="proof-thumb" onclick="showImg('${escapeHtml(
+                  r.proof_image_url
+                )}')" alt="หลักฐาน" />`;
+              }
+              return `<div class="list-item">
+                <div class="grow">
+                  <div class="title">${escapeHtml(r.activity?.title || '-')}</div>
+                  <div class="sub">วันที่จัด ${fmtDate(r.activity?.event_date)}</div>
+                </div>
+                ${statusBadge(r.status)}
+                ${action}
+              </div>`;
+            })
+            .join('');
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      }
+
+      // ---------- เกียรติบัตรของฉัน ----------
+      async function loadCerts() {
+        try {
+          const { certificates } = await api('/api/certificates/mine');
+          const grid = document.getElementById('myCerts');
+          if (!certificates.length) {
+            grid.innerHTML = '<div class="empty">ยังไม่มีเกียรติบัตร</div>';
+            return;
+          }
+          grid.innerHTML = certificates
+            .map(
+              (c) => `<div class="card">
+                <span class="badge badge-gold"><span class="dot"></span>ผ่านการอนุมัติ</span>
+                <h3 style="margin-top:10px">${escapeHtml(c.activity?.title || '-')}</h3>
+                <p class="desc">ออกเมื่อ ${fmtDate(c.issued_at)}</p>
+                <a class="btn btn-primary btn-block" href="certificate?id=${c.id}" target="_blank">เปิด / ดาวน์โหลดเกียรติบัตร</a>
+              </div>`
+            )
+            .join('');
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      }
+
+      // ---------- modal ลงทะเบียน ----------
+      const regModal = document.getElementById('regModal');
+      const regFile = document.getElementById('regFile');
+      const regPreview = document.getElementById('regPreview');
+      const regSubmit = document.getElementById('regSubmit');
+      let currentActivity = null;
+      let proofBase64 = null;
+
+      function openRegModal(act) {
+        currentActivity = act;
+        proofBase64 = null;
+        document.getElementById('regTitle').textContent = act.title;
+        document.getElementById('regDesc').textContent =
+          act.description || 'ไม่มีรายละเอียด';
+        regFile.value = '';
+        regPreview.hidden = true;
+        regSubmit.disabled = false;
+        regSubmit.textContent = 'ส่งคำขอ';
+        regModal.classList.add('show');
+      }
+      function closeRegModal() {
+        regModal.classList.remove('show');
+        currentActivity = null;
+      }
+
+      regFile.addEventListener('change', () => {
+        const file = regFile.files[0];
+        if (!file) {
+          proofBase64 = null;
+          regPreview.hidden = true;
+          return;
+        }
+        if (file.size > 8 * 1024 * 1024) {
+          toast('ไฟล์ใหญ่เกิน 8MB', 'error');
+          regFile.value = '';
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+          proofBase64 = reader.result;
+          regPreview.src = proofBase64;
+          regPreview.hidden = false;
+        };
+        reader.readAsDataURL(file);
+      });
+
+      regSubmit.addEventListener('click', async () => {
+        if (!currentActivity) return;
+        if (!proofBase64) {
+          toast('กรุณาแนบรูปหลักฐานก่อนส่งคำขอ', 'error');
+          return;
+        }
+        regSubmit.disabled = true;
+        regSubmit.textContent = 'กำลังส่ง...';
+        try {
+          await api('/api/registrations', {
+            method: 'POST',
+            body: { activity_id: currentActivity.id, image_base64: proofBase64 },
+          });
+          toast('ส่งคำขอสำเร็จ รอครูอนุมัติ', 'success');
+          closeRegModal();
+          await loadAll();
+        } catch (err) {
+          toast(err.message, 'error');
+          regSubmit.disabled = false;
+          regSubmit.textContent = 'ส่งคำขอ';
+        }
+      });
+
+      function showImg(url) {
+        document.getElementById('modalImg').src = url;
+        document.getElementById('imgModal').classList.add('show');
+      }
+
+      loadAll();
+      loadCerts();
+    </script>
+  </body>
+</html>

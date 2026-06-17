@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>เข้าสู่ระบบ — ระบบเกียรติบัตรโรงเรียน</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/styles.css" />
+    <style>
+      .login-wrap {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+      .login-card {
+        background: #fff;
+        width: 100%;
+        max-width: 400px;
+        border-radius: 16px;
+        box-shadow: var(--shadow-lg);
+        padding: 36px 32px 28px;
+      }
+      .login-logo {
+        display: block;
+        height: 96px;
+        width: auto;
+        margin: 0 auto 14px;
+      }
+      .login-card h1 {
+        text-align: center;
+        font-size: 22px;
+        color: var(--primary);
+        margin-bottom: 4px;
+      }
+      .login-card .subtitle {
+        text-align: center;
+        color: var(--muted);
+        font-size: 14px;
+        margin-bottom: 24px;
+      }
+      .login-foot {
+        text-align: center;
+        margin-top: 18px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .hint {
+        background: var(--bg);
+        border-radius: 9px;
+        padding: 10px 12px;
+        font-size: 12.5px;
+        color: var(--muted);
+        margin-top: 16px;
+        line-height: 1.7;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="login-wrap">
+      <div class="login-card">
+        <img class="login-logo" src="assets/logo.png" alt="โลโก้โรงเรียนศรียานุสรณ์" onerror="this.style.display='none'" />
+        <h1>ระบบเกียรติบัตรโรงเรียน</h1>
+        <p class="subtitle">โรงเรียนศรียานุสรณ์ จังหวัดจันทบุรี</p>
+
+        <form id="loginForm">
+          <div class="field">
+            <label for="email">อีเมลโรงเรียน</label>
+            <input
+              type="email"
+              id="email"
+              placeholder="name@siya.ac.th"
+              autocomplete="username"
+              required
+            />
+          </div>
+          <div class="field">
+            <label for="password">รหัสผ่าน</label>
+            <input
+              type="password"
+              id="password"
+              placeholder="••••••••"
+              autocomplete="current-password"
+              required
+            />
+          </div>
+          <button type="submit" class="btn btn-primary btn-block" id="submitBtn">
+            เข้าสู่ระบบ
+          </button>
+        </form>
+
+        <p class="login-foot">ใช้อีเมล <b>@siya.ac.th</b> ของโรงเรียนเท่านั้น</p>
+
+        <div class="hint">
+          <b>บัญชีเดโม</b> (หลังรัน seed):<br />
+          ครู: admin1@siya.ac.th<br />
+          นักเรียน: student1@siya.ac.th<br />
+          รหัสผ่าน: Password123!
+        </div>
+      </div>
+    </div>
+
+    <script src="assets/config.js"></script>
+    <script src="assets/app.js"></script>
+    <script>
+      // ถ้าล็อกอินอยู่แล้ว เด้งไปหน้าที่เหมาะสม
+      if (getToken()) {
+        location.replace(
+          localStorage.getItem('role') === 'admin' ? 'admin.html' : 'student.html'
+        );
+      }
+
+      const form = document.getElementById('loginForm');
+      const btn = document.getElementById('submitBtn');
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+
+        // ตรวจโดเมนฝั่ง client ก่อน
+        if (!/@siya\.ac\.th$/i.test(email)) {
+          toast('กรุณาใช้อีเมล @siya.ac.th ของโรงเรียน', 'error');
+          return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'กำลังเข้าสู่ระบบ...';
+        try {
+          const data = await api('/api/auth/login', {
+            method: 'POST',
+            auth: false,
+            body: { email, password },
+          });
+          saveSession(data);
+          location.href = data.role === 'admin' ? 'admin.html' : 'student.html';
+        } catch (err) {
+          toast(err.message, 'error');
+          btn.disabled = false;
+          btn.textContent = 'เข้าสู่ระบบ';
+        }
+      });
+    </script>
+  </body>
+</html>

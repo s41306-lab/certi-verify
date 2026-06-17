@@ -1,0 +1,13 @@
+name: keepalive
+# ยิง ping ทุก ~10 นาที เพื่อกัน Render free ไม่ให้หลับ
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping backend health
+        run: curl -fsS --max-time 60 https://certi-verify-api.onrender.com/api/health || true

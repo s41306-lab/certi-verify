@@ -173,13 +173,15 @@ app.get('/api/activities', requireAuth, (req, res) => {
 });
 
 app.post('/api/activities', requireAuth, requireAdmin, (req, res) => {
-  const { title, description, event_date } = req.body || {};
+  const { title, description, event_date, image_base64 } = req.body || {};
   if (!title || !title.trim()) return res.status(400).json({ error: 'กรุณาระบุชื่อกิจกรรม' });
   const activity = {
     id: uid(),
     title: title.trim(),
     description: description?.trim() || null,
     event_date: event_date || null,
+    image_url: image_base64 || null,
+    certificate_template_url: null,
     created_by: req.user.id,
     created_at: now(),
   };

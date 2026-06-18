@@ -54,6 +54,11 @@
               <label>วันที่จัดกิจกรรม</label>
               <input id="actDate" type="date" />
             </div>
+            <div class="field">
+              <label>รูปกิจกรรม (แนะนำ 16:9 เช่น 1280×720)</label>
+              <input type="file" id="actImage" class="file-input" accept="image/*" />
+              <img id="actImagePreview" class="preview-img" alt="ตัวอย่างรูปกิจกรรม" hidden />
+            </div>
             <button class="btn btn-primary" type="submit">เพิ่มกิจกรรม</button>
           </form>
         </div>
@@ -77,6 +82,12 @@
         <div class="field">
           <label>วันที่จัดกิจกรรม</label>
           <input id="editDate" type="date" />
+        </div>
+        <div class="field">
+          <label>เปลี่ยนรูปกิจกรรม (ถ้าต้องการ)</label>
+          <img id="editImageCurrent" class="preview-img" alt="รูปปัจจุบัน" hidden />
+          <input type="file" id="editImage" class="file-input" accept="image/*" />
+          <img id="editImagePreview" class="preview-img" alt="ตัวอย่างรูปใหม่" hidden />
         </div>
         <div class="modal-actions">
           <button class="btn btn-primary" id="editSave">บันทึก</button>
@@ -206,6 +217,7 @@
                     title: a.title,
                     description: a.description || '',
                     event_date: a.event_date || '',
+                    image_url: a.image_url || '',
                   })})'>แก้ไข</button>
                   <button class="btn btn-primary btn-sm" onclick='openTpl(${JSON.stringify({
                     id: a.id,
@@ -221,6 +233,34 @@
         }
       }
 
+      // อ่านไฟล์รูปเป็น base64 (จำกัด 8MB) แสดง preview ใน <img> ที่กำหนด
+      function bindImagePicker(inputEl, previewEl, onChange) {
+        inputEl.addEventListener('change', () => {
+          const file = inputEl.files[0];
+          if (!file) { onChange(null); previewEl.hidden = true; return; }
+          if (file.size > 8 * 1024 * 1024) {
+            toast('ไฟล์ใหญ่เกิน 8MB', 'error');
+            inputEl.value = '';
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = () => {
+            onChange(reader.result);
+            previewEl.src = reader.result;
+            previewEl.hidden = false;
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+
+      // ---------- ฟอร์มเพิ่มกิจกรรม ----------
+      let newActImage = null;
+      bindImagePicker(
+        document.getElementById('actImage'),
+        document.getElementById('actImagePreview'),
+        (v) => (newActImage = v)
+      );
+
       document.getElementById('actForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const title = document.getElementById('actTitle').value.trim();
@@ -229,10 +269,12 @@
         try {
           await api('/api/activities', {
             method: 'POST',
-            body: { title, description, event_date },
+            body: { title, description, event_date, image_base64: newActImage || undefined },
           });
           toast('เพิ่มกิจกรรมแล้ว', 'success');
           e.target.reset();
+          newActImage = null;
+          document.getElementById('actImagePreview').hidden = true;
           loadActivities();
         } catch (err) {
           toast(err.message, 'error');
@@ -253,11 +295,22 @@
 
       // ---------- modal แก้ไข ----------
       let editId = null;
+      let newEditImage = null;
+      bindImagePicker(
+        document.getElementById('editImage'),
+        document.getElementById('editImagePreview'),
+        (v) => (newEditImage = v)
+      );
       function openEdit(a) {
         editId = a.id;
+        newEditImage = null;
         document.getElementById('editTitle').value = a.title;
         document.getElementById('editDesc').value = a.description;
         document.getElementById('editDate').value = a.event_date;
+        const cur = document.getElementById('editImageCurrent');
+        if (a.image_url) { cur.src = a.image_url; cur.hidden = false; } else { cur.hidden = true; }
+        document.getElementById('editImage').value = '';
+        document.getElementById('editImagePreview').hidden = true;
         document.getElementById('editModal').classList.add('show');
       }
       function closeEdit() {
@@ -273,6 +326,7 @@
               title: document.getElementById('editTitle').value.trim(),
               description: document.getElementById('editDesc').value.trim(),
               event_date: document.getElementById('editDate').value || null,
+              image_base64: newEditImage || undefined,
             },
           });
           toast('บันทึกแล้ว', 'success');
